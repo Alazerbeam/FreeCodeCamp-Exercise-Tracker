@@ -54,15 +54,16 @@ const findOrCreateUser = async (username, done) => {
 const addExerciseToUser = async (userId, description, duration, date, done) => {
   try {
     let user = await User.findById(userId);
+
     const exercise = new Exercise({
       description: description,
       duration: duration,
       date: date,
     });
-    console.log("date:", date);
-    console.log("exercise.date:", exercise.date);
+
     user.log.push(exercise);
     user = await user.save();
+    
     done(null, user);
   } catch (err) {
     done(err);
@@ -71,8 +72,17 @@ const addExerciseToUser = async (userId, description, duration, date, done) => {
 
 const findAllUsers = async (done) => {
   try {
-    let users = await User.find({});
+    const users = await User.find({});
     done(null, users);
+  } catch (err) {
+    done(err);
+  }
+}
+
+const findUserById = async (userId, done) => {
+  try {
+    const user = await User.findById(userId);
+    done(null, user);
   } catch (err) {
     done(err);
   }
@@ -82,13 +92,15 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html');
 });
 
+app.get('/api/reset', async (req, res) => {
+  await User.deleteMany({});
+  res.send('Database cleared!');
+})
+
 app.get('/api/users', (req, res) => {
   findAllUsers((err, data) => {
     if (err) return res.json({error: 'Database error'});
-    const users = [];
-    for (const user of data) {
-      users.push({username: user.username, _id: user._id});
-    }
+    const users = data.map(user => ({username: user.username, _id: user._id}));
     res.json(users);
   });
 });
@@ -98,10 +110,6 @@ app.post('/api/users', (req, res) => {
     if (err) return res.json({error: 'Database error'});
     res.json({username: data.username, _id: data._id});
   });
-});
-
-app.get('/api/users/:_id/exercises', (req, res) => {
-  
 });
 
 app.post('/api/users/:_id/exercises', (req, res) => {
@@ -129,6 +137,34 @@ app.post('/api/users/:_id/exercises', (req, res) => {
       });
     }
   );
+});
+
+app.get('/api/users/:_id/logs', (req, res) => {
+  // req.query could contain from, to, limit
+  findUserById(req.params._id, (err, data) => {
+    if (err) return res.json({error: 'Database error'});
+
+    const filteredLogWithoutId = data.log
+      .map(exercise => ({
+        description: exercise.description,
+        duration: exercise.duration,
+        date: exercise.date
+      }))
+      .filter(exercise => {
+        return !req.query.from || new Date(req.query.from) <= new Date(exercise.date)
+      })
+      .filter(exercise => {
+        return !req.query.to || new Date(req.query.to) >= new Date(exercise.date)
+      })
+      .slice(0, req.query.limit || data.log.length);
+
+    res.json({
+      _id: data._id,
+      username: data.username,
+      count: filteredLogWithoutId.length,
+      log: filteredLogWithoutId
+    });
+  });
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
