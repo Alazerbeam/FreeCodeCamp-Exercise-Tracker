@@ -156,9 +156,10 @@ app.get('/api/users/:_id/logs', (req, res) => {
       .filter(exercise => {
         return !req.query.to || new Date(req.query.to) >= new Date(exercise.date)
       })
-      // .slice(0, req.query.limit || data.log.length);
-    filteredLogWithoutId.sort((a, b) => new Date(b.date) - new Date(a.date));
-    filteredLogWithoutId = filteredLogWithoutId.slice(0, req.query.limit || data.log.length);
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, req.query.limit || data.log.length);
+    // filteredLogWithoutId.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // filteredLogWithoutId = filteredLogWithoutId.slice(0, req.query.limit || data.log.length);
 
     res.json({
       _id: data._id,
